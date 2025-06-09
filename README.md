@@ -42,7 +42,8 @@ if __name__ == "__main__":
 ## Extracting flip events
 
 `VCDReader` builds on top of `vcd_parser.VCDParser` and provides a simple way to
-retrieve signal transitions for a given pin.
+retrieve signal transitions for a given pin. The reader performs a binary search
+on the timestamps so it can jump directly to the requested time window.
 
 ```python
 from vcd_reader import VCDReader
@@ -51,4 +52,12 @@ reader = VCDReader("p3_cpu.vcd")
 flips = reader.get_flip_events("clk", 0, 1000)
 for rising, ts in flips:
     print("rise" if rising else "fall", ts)
+```
+
+### Command-line demo
+
+`demo.py` exposes this functionality via a small CLI:
+
+```bash
+python3 demo.py wave.vcd clk --start 0 --end 1000
 ```

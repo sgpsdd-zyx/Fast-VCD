@@ -1,6 +1,7 @@
 # VCDReader module for extracting flip events from VCD files.
 from __future__ import annotations
 
+import bisect
 import os
 from typing import List, Tuple
 
@@ -59,13 +60,14 @@ class VCDReader:
         times = self.parser.get_rows()
         events: List[Tuple[bool, int]] = []
 
+        # Find the first and last relevant indices using binary search.
+        start_idx = bisect.bisect_left(times, start_time)
+        end_idx = bisect.bisect_right(times, end_time)
+
         prev_val = None
 
-        for idx, t in enumerate(times):
-            if t < start_time:
-                continue
-            if t > end_time:
-                break
+        for idx in range(start_idx, end_idx):
+            t = times[idx]
 
             row = self.parser.query_row(idx)
             cur_val = row.get(target_pin)
