@@ -69,9 +69,8 @@ class VCDReader:
         for idx in range(start_idx, end_idx):
             t = times[idx]
 
-            row = self.parser.query_row(idx)
-            cur_val = row.get(target_pin)
-            if cur_val is None:
+            cur_val = self.parser.query_cell(idx, target_pin)
+            if not cur_val:
                 # Pin not present in this row
                 continue
 

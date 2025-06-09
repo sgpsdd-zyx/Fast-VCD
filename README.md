@@ -42,8 +42,9 @@ if __name__ == "__main__":
 ## Extracting flip events
 
 `VCDReader` builds on top of `vcd_parser.VCDParser` and provides a simple way to
-retrieve signal transitions for a given pin. The reader performs a binary search
-on the timestamps so it can jump directly to the requested time window.
+retrieve signal transitions for a given pin. The parser exposes a `query_cell`
+function so the reader only loads the requested signal, and it performs a binary
+search on the timestamps so it can jump directly to the requested time window.
 
 ```python
 from vcd_reader import VCDReader
