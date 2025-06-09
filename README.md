@@ -38,3 +38,17 @@ if __name__ == "__main__":
 
     print(row)
 ```
+
+## Extracting flip events
+
+`VCDReader` builds on top of `vcd_parser.VCDParser` and provides a simple way to
+retrieve signal transitions for a given pin.
+
+```python
+from vcd_reader import VCDReader
+
+reader = VCDReader("p3_cpu.vcd")
+flips = reader.get_flip_events("clk", 0, 1000)
+for rising, ts in flips:
+    print("rise" if rising else "fall", ts)
+```
