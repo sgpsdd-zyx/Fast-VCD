@@ -88,20 +88,35 @@ class Parser {
 		decompress();
 	}
 
-	// Return a map from column name to string for a given row.
-	std::unordered_map<std::string, std::string> fetch_row(const size_t row) const {
-		std::unordered_map<std::string, std::string> result;
-		if (row >= time_steps.size()) {
-			return result;
-		}
-		size_t num_cols = column_names.size();
-		const char* base = data_block.data();
-		for (size_t i = 0; i < num_cols; ++i) {
-			unsigned int off = db[row * num_cols + i];
-			result[column_names[i]] = std::string(base + off);
-		}
-		return result;
-	}
+        // Return a map from column name to string for a given row.
+        std::unordered_map<std::string, std::string> fetch_row(const size_t row) const {
+                std::unordered_map<std::string, std::string> result;
+                if (row >= time_steps.size()) {
+                        return result;
+                }
+                size_t num_cols = column_names.size();
+                const char* base = data_block.data();
+                for (size_t i = 0; i < num_cols; ++i) {
+                        unsigned int off = db[row * num_cols + i];
+                        result[column_names[i]] = std::string(base + off);
+                }
+                return result;
+        }
+
+        // Fetch a single cell value given a row and column name.
+        std::string fetch_cell(const size_t row, const std::string& column) const {
+                if (row >= time_steps.size()) {
+                        return {};
+                }
+                auto it = column_index.find(column);
+                if (it == column_index.end()) {
+                        return {};
+                }
+                int col = it->second;
+                unsigned int off = db[row * column_names.size() + col];
+                const char* base = data_block.data();
+                return std::string(base + off);
+        }
 
 	std::vector<int> get_rows() const {
 		return time_steps;
@@ -136,9 +151,10 @@ class Parser {
 	std::unordered_map<std::string, std::string> symbol_table;
 	// db now holds offsets into data_block.
 	std::vector<unsigned int> db;
-	std::vector<std::unordered_map<std::string_view, std::string>> raw_data;
-	std::vector<std::string> column_names;
-	std::vector<int> time_steps;
+        std::vector<std::unordered_map<std::string_view, std::string>> raw_data;
+        std::vector<std::string> column_names;
+        std::unordered_map<std::string, int> column_index;
+        std::vector<int> time_steps;
 	// data_block holds concatenated string data.
 	std::vector<char> data_block;
 
@@ -284,15 +300,15 @@ class Parser {
 		size_t num_cols = symbol_table.size();
 		db.resize(num_rows * num_cols, 0);  // default offset 0 (empty string)
 
-		// Build column_map and column_names.
-		std::unordered_map<std::string_view, int> column_map;
-		{
-			int idx = 0;
-			for (const auto& [_, value] : symbol_table) {
-				column_map[value] = idx++;
-				column_names.push_back(value);
-			}
-		}
+                // Build column_index and column_names.
+                column_index.clear();
+                {
+                        int idx = 0;
+                        for (const auto& [_, value] : symbol_table) {
+                                column_index[std::string(value)] = idx++;
+                                column_names.push_back(value);
+                        }
+                }
 
 		// For each row:
 		for (size_t i = 0; i < num_rows; ++i) {
@@ -304,8 +320,8 @@ class Parser {
 				}
 			}
 			// For each updated column in raw_data[i]:
-			for (const auto& [name, value] : raw_data[i]) {
-				int col = column_map.at(name);
+                        for (const auto& [name, value] : raw_data[i]) {
+                                int col = column_index.at(std::string(name));
 				// Store new offset.
 				unsigned int offset = static_cast<unsigned int>(data_block.size());
 				db[rowStart + col] = offset;
@@ -336,8 +352,10 @@ PYBIND11_MODULE(vcd_parser, m) {
 	m.doc() = "VCD Parser Module: Loads and queries VCD files.";
 	py::class_<Parser>(m, "VCDParser", "A parser for VCD files, allowing queries by row and column.")
 		.def(py::init<const std::string&>(), "Constructor that loads a VCD file.", py::arg("filename"))
-		.def("query_row", &Parser::fetch_row, "Fetch a row by index from the VCD file.", py::arg("row_index"))
-		.def("get_rows", &Parser::get_rows, "Return the names of rows in the VCD file (time steps).")
+                .def("query_row", &Parser::fetch_row, "Fetch a row by index from the VCD file.", py::arg("row_index"))
+                .def("query_cell", &Parser::fetch_cell, "Fetch a single cell value by row and column.",
+                     py::arg("row_index"), py::arg("column_name"))
+                .def("get_rows", &Parser::get_rows, "Return the names of rows in the VCD file (time steps).")
 		.def("get_columns", &Parser::get_columns, "Return the column names in the VCD file.")
 		.def("get_pos_clock_numbers", &Parser::get_pos_clock_numbers, "Return the number of positive clocks.")
 		.def("get_neg_clock_numbers", &Parser::get_neg_clock_numbers,
